@@ -1,0 +1,865 @@
+---
+title: "jasa-mandarin_retroflex"
+author: "Kate Shan Luo"
+date: "7/29/2020"
+output:
+  pdf_document: 
+    latex_engine: xelatex
+  html_document: default
+---
+
+```{r}
+library(lme4)
+library(lmerTest)
+library(lsmeans)
+library(ggplot2)
+library(pastecs)
+library(Hmisc)
+library(MASS)
+library(dplyr)
+library(knitr)
+library(broom)
+library(groupdata2)
+library(caret)
+library(tidyverse)
+library(sjPlot)
+library(sjstats)
+library(scales)
+library(rattle)
+library(heplots)
+library(klaR)
+library(gridExtra)
+library(cowplot)
+library(multcompView)
+library(ggpubr)
+library(gss)
+library(lme4)
+library(lmerTest)
+library(lsmeans)
+library(ggplot2)
+library(pastecs)
+library(Hmisc)
+library(MASS)
+library(dplyr)
+library(knitr)
+library(broom)
+library(groupdata2)
+library(caret)
+library(tidyverse)
+library(sjPlot)
+library(sjstats)
+library(scales)
+library(rattle)
+library(heplots)
+library(klaR)
+library(gridExtra)
+library(cowplot)
+library(multcompView)
+library(ggpubr)
+library(gss)
+library(extrafont)
+library(tinytex)
+```
+
+#Table 3
+```{r}
+data = read.csv("data.csv",header=TRUE)
+save(data, file = "data.RData")
+load(file="data.RData")
+
+table(data$Rating)
+
+data$Rating = factor(data$Rating,
+                      levels = c("bunched","humped","retroflex","Alveolar"),
+                      labels = c("Bunched","Humped","Retroflex","Alveolar"))
+table(data$Rating)
+
+data$Consonant=factor(data$Consonant,
+                           levels = c("c", "s", "z","ch","sh","zh"),
+                           labels = c("ʦʰ", "s", "ʦ","tʂʰ","ʂ","tʂ"))
+
+data$Grouping = data$Consonant
+
+levels(data$Grouping) <- list(Alveolar=c("ʦʰ","s","ʦ"),Retroflex=c("tʂʰ","ʂ","tʂ"))
+
+
+data$Participant = factor(data$Participant,
+                        levels = c("P1","P2","P3","P4","P5", "P6","P7","P8","P9","P10","P11","P12","P13","P14","P15","P16","P17","P18","P19"),
+                        labels = c("P1","P2","P3","P4","P5", "P6","P7","P8","P9","P10","P11","P12","P13","P14","P15","P16","P17","P18","P19"))
+
+data = subset(data, Participant !="P5")
+table(data$Rating)
+
+data$Following_Vowel=factor(data$Following_Vowel,
+                      levels = c("i", "a", "u"),
+                      labels = c("i", "a", "u"))
+
+data$Gender =factor(data$Gender,
+                            levels = c("F", "M"),
+                            labels = c("F", "M"))
+
+data$F3F2Distance = data$F3_mean - data$F2_mean
+data = data[which(data$F3F2Distance > 0), ]
+```
+
+
+#Figure 3 articulatory boxplots for different retroflex shapes 
+```{r}
+
+dataretroflex = subset(data, Rating != "Alveolar")
+
+save(dataretroflex, file = "dataretroflex.RData")
+load(file="dataretroflex.RData")
+
+cleanup = theme(panel.grid.major = element_blank(),
+                panel.grid.minor = element_blank(),
+                panel.background = element_blank(),
+                axis.line = element_line(color = "black"))
+
+cl_boxplot = ggplot(dataretroflex,aes(x=Consonant,y=Curvature_Location))+
+  geom_boxplot(aes(color = Rating))+
+  scale_color_manual(values = c("#00AFBB", "#FC4E07"))+
+  xlab("")+ylab("Curvature Location")+
+  stat_compare_means(aes(group = Rating),label = "p.signif",label.y = 0.6,hide.ns = TRUE)+cleanup
+
+
+cd_boxplot = ggplot(dataretroflex,aes(x=Consonant,y=Curvature_Degree))+
+  geom_boxplot(aes(color = Rating))+
+  scale_color_manual(values = c("#00AFBB", "#FC4E07"))+
+  xlab("")+ylab("Curvature Degree")+
+  stat_compare_means(aes(group = Rating),label = "p.signif",label.y = 0.55,hide.ns = TRUE)+ cleanup
+
+MCI_boxplot = ggplot(dataretroflex,aes(x=Consonant,y=MCI))+
+  geom_boxplot(aes(color = Rating))+
+  scale_color_manual(values = c("#00AFBB", "#FC4E07"))+
+  xlab("")+ylab("MCI")+
+  stat_compare_means(aes(group = Rating),label = "p.signif",label.y = 4,hide.ns = TRUE)+  cleanup
+
+real1_boxplot = ggplot(dataretroflex,aes(x=Consonant,y=real_1))+
+  geom_boxplot(aes(color = Rating))+
+  scale_color_manual(values = c("#00AFBB", "#FC4E07"))+
+  xlab("")+ylab("C1_real")+
+  stat_compare_means(aes(group = Rating),label = "p.signif",label.y = 40,hide.ns = TRUE)+  cleanup
+
+
+imag1_boxplot = ggplot(dataretroflex,aes(x=Consonant,y=imag_1))+
+  geom_boxplot(aes(color = Rating))+
+  scale_color_manual(values = c("#00AFBB", "#FC4E07"))+
+  xlab("")+ylab("C1_imag")+
+  stat_compare_means(aes(group = Rating),label = "p.signif",label.y = -2,hide.ns = TRUE)+  cleanup
+
+fig3 = ggarrange(cl_boxplot,cd_boxplot,MCI_boxplot,
+                    real1_boxplot,imag1_boxplot,
+                    common.legend = TRUE)
+
+ggsave(fig3,filename= "Fig3.png",dpi = 500, width = 8, height = 6, units = "in")
+```
+
+##Figure 4 acoustic boxplots for different retroflex shapes 
+
+```{r}
+
+COG_boxplot = ggplot(dataretroflex,aes(x=Consonant,y=COG))+
+   geom_boxplot(aes(color = Rating))+
+ scale_color_manual(values = c("#00AFBB","#FC4E07","#E69F00"))+
+  xlab("")+ylab("COG")+
+  stat_compare_means(aes(group = Rating),label = "p.signif",label.y = 5000,hide.ns = TRUE)+  cleanup
+
+
+dispersion_boxplot = ggplot(dataretroflex,aes(x=Consonant,y=Dispersion))+
+  geom_boxplot(aes(color = Rating))+
+ scale_color_manual(values = c("#00AFBB","#FC4E07","#E69F00"))+
+  xlab("")+ylab("Dispersion")+
+  stat_compare_means(aes(group = Rating),label = "p.signif",label.y = 2800,hide.ns = TRUE) + cleanup
+
+
+skew_boxplot = ggplot(dataretroflex,aes(x=Consonant,y=Skewness))+
+  geom_boxplot(aes(color = Rating))+
+  scale_color_manual(values = c("#00AFBB","#FC4E07","#E69F00"))+
+  xlab("")+ylab("Skewness")+
+  stat_compare_means(aes(group = Rating),label = "p.signif",label.y = 2,hide.ns = TRUE)+  cleanup
+
+F3F2_boxplot = ggplot(dataretroflex,aes(x=Consonant,y=F3F2Distance))+
+  geom_boxplot(aes(color = Rating))+
+  scale_color_manual(values = c("#00AFBB","#FC4E07","#E69F00"))+
+  xlab("")+ylab("F3F2Distance")+
+  stat_compare_means(aes(group = Rating),label = "p.signif",label.y = 1500,hide.ns = TRUE)+  cleanup
+
+F2_boxplot = ggplot(dataretroflex,aes(x=Consonant,y=F2_mean))+
+  geom_boxplot(aes(color = Rating))+
+ scale_color_manual(values = c("#00AFBB","#FC4E07","#E69F00"))+
+  xlab("")+ylab("F2")+
+  stat_compare_means(aes(group = Rating),label = "p.signif",label.y = 2700,hide.ns = TRUE)+ cleanup
+
+
+F3_boxplot = ggplot(dataretroflex,aes(x=Consonant,y=F3_mean))+
+       geom_boxplot(aes(color = Rating))+
+   scale_color_manual(values = c("#00AFBB","#FC4E07","#E69F00"))+
+  xlab("")+ylab("F3")+
+  stat_compare_means(aes(group = Rating),label = "p.signif",label.y = 4000,hide.ns = TRUE)+  cleanup
+
+
+fig4 = ggarrange(COG_boxplot,dispersion_boxplot,skew_boxplot,
+                    F2_boxplot,F3_boxplot,F3F2_boxplot,
+                    common.legend = TRUE)
+
+ggsave(fig4,filename= "Fig4.png",dpi = 500, width = 8, height = 6, units = "in")
+
+```
+
+
+#Figure 5 SSANOVA for all 18 speakers 
+```{r}
+
+datassanova = read.csv("datassanova.csv",header=TRUE)
+
+save(datassanova, file = "datassanova.RData")
+
+load(file="datassanova.RData")
+
+datassanova$Section <- NULL 
+
+datassanova$Consonant=factor(datassanova$Consonant,
+                      levels = c("c","ch", "s", "sh", "z","zh"),
+                      labels = c("ʦʰ","tʂʰ","s", "ʂ", "ʦ","tʂ"))
+
+datassanova$Vowel =factor(datassanova$Vowel,
+                          levels = c("i","a","u"),
+                          labels = c("i","a","u"))
+
+datassanova$Grouping = datassanova$Consonant
+
+levels(datassanova$Grouping) <- list(Alveolar=c("ʦʰ","s","ʦ"),Retroflex=c("tʂʰ","ʂ","tʂ"))
+
+
+datassanova$Participant = factor(datassanova$Participant,
+                               levels = c("P1","P2","P3","P4","P5","P6","P7","P8","P9","P10",   "P11","P12","P13","P14","P15","P16","P17","P18","P19"),
+                               labels = c("P1","P2","P3","P4","P5","P6","P7","P8","P9","P10",                             "P11","P12","P13","P14","P15","P16","P17","P18","P19"))
+
+datassanova = subset(datassanova, Participant != "P5")
+
+###p1 tongue ssanove 
+
+p1data = subset(datassanova,Participant == "P1")
+
+p1.tongue = ssanova(Y~Consonant + X + Consonant:X, data=p1data)
+p1.tongue.grid <- expand.grid(X = seq(min(p1data$X),max(p1data$X), length = 42), Consonant=levels(p1data$Consonant)) 
+p1.tongue.grid$Fit <- predict(p1.tongue, newdata = p1.tongue.grid, se = T)$fit 
+p1.tongue.grid$SE <- predict(p1.tongue, newdata = p1.tongue.grid, se = T)$se.fit 
+
+par(pty="s")
+comparison.p1 <- ggplot(p1.tongue.grid,aes(x=X, color=Consonant), res=300)
+p1ssanova = comparison.p1 + geom_line(aes(y=Fit), size=2, alpha = .8) +
+  scale_color_brewer(type="seq", palette = "Paired")+
+  coord_fixed(ratio= 85 /45,xlim = c(40,125),
+              ylim = c(30,75))+
+  ylab("") +xlab("P1(F)")+
+  geom_line(aes(y=Fit+(1.96*SE)),lty=2,alpha=0.8)+
+  geom_line(aes(y=Fit-(1.96*SE)),lty=2,alpha=0.8)+
+  theme(legend.position = "none")
+
+
+##p2 tongue ssanova
+
+p2data = subset(datassanova,Participant == "P2")
+
+p2.tongue = ssanova(Y~Consonant + X + Consonant:X, data=p2data)
+p2.tongue.grid <- expand.grid(X = seq(min(p2data$X),max(p2data$X), length = 42), Consonant=levels(p2data$Consonant)) 
+p2.tongue.grid$Fit <- predict(p2.tongue, newdata = p2.tongue.grid, se = T)$fit 
+p2.tongue.grid$SE <- predict(p2.tongue, newdata = p2.tongue.grid, se = T)$se.fit 
+
+par(pty="s")
+comparison.p2 <- ggplot(p2.tongue.grid,aes(x=X, color=Consonant), res=300)
+p2ssanova = comparison.p2 + geom_line(aes(y=Fit), size=2, alpha = .8) +
+  scale_color_brewer(type="seq", palette = "Paired")+
+  coord_fixed(ratio= 85 /45,xlim = c(40,125),
+              ylim = c(30,75))+
+  ylab("") +xlab("P2(M)")+
+  geom_line(aes(y=Fit+(1.96*SE)),lty=2,alpha=0.8)+
+  geom_line(aes(y=Fit-(1.96*SE)),lty=2,alpha=0.8)+
+  theme(legend.position="none")
+
+###p3 ssanova
+
+p3data = subset(datassanova,Participant == "P3")
+
+p3.tongue = ssanova(Y~Consonant + X + Consonant:X, data=p3data)
+p3.tongue.grid <- expand.grid(X = seq(min(p3data$X),max(p3data$X),
+length = 42), Consonant=levels(p3data$Consonant)) 
+p3.tongue.grid$Fit <- predict(p3.tongue, newdata = p3.tongue.grid, se = T)$fit 
+p3.tongue.grid$SE <- predict(p3.tongue, newdata = p3.tongue.grid, se = T)$se.fit 
+
+par(pty="s")
+comparison.p3 <- ggplot(p3.tongue.grid,aes(x=X, color=Consonant), res=300)
+p3ssanova = comparison.p3 + geom_line(aes(y=Fit), size=2, alpha = .8) +
+  scale_color_brewer(type="seq", palette = "Paired")+
+  coord_fixed(ratio= 85 /45,xlim = c(40,125),
+              ylim = c(30,75))+
+  ylab("") +xlab("P3(F)")+
+  geom_line(aes(y=Fit+(1.96*SE)),lty=2,alpha=0.8)+
+  geom_line(aes(y=Fit-(1.96*SE)),lty=2,alpha=0.8)+
+  theme(legend.position="none")
+
+
+###p4 ssanova
+
+p4data = subset(datassanova,Participant == "P4")
+
+p4.tongue = ssanova(Y~Consonant + X + Consonant:X, data=p4data)
+p4.tongue.grid <- expand.grid(X = seq(min(p4data$X),max(p4data$X),
+length = 42), Consonant=levels(p4data$Consonant)) 
+
+p4.tongue.grid$Fit <- predict(p4.tongue, newdata = p4.tongue.grid, se = T)$fit 
+p4.tongue.grid$SE <- predict(p4.tongue, newdata = p4.tongue.grid, se = T)$se.fit 
+
+par(pty="s")
+comparison.p4 <- ggplot(p4.tongue.grid,aes(x=X, color=Consonant), res=300)
+p4ssanova = comparison.p4 + geom_line(aes(y=Fit), size=2, alpha = .8) +
+  scale_color_brewer(type="seq", palette = "Paired")+
+  coord_fixed(ratio= 85 /45,xlim = c(40,125),
+              ylim = c(30,75))+
+  ylab("") +xlab("P4(F)")+
+  geom_line(aes(y=Fit+(1.96*SE)),lty=2,alpha=0.8)+
+  geom_line(aes(y=Fit-(1.96*SE)),lty=2,alpha=0.8)+
+  theme(legend.position="none")
+
+###p6 ssanova
+
+p6data = subset(datassanova,Participant == "P6")
+
+p6.tongue = ssanova(Y~Consonant + X + Consonant:X, data=p6data)
+
+p6.tongue.grid <- expand.grid(X = seq(min(p6data$X),max(p6data$X),
+length = 42), Consonant=levels(p6data$Consonant)) 
+
+p6.tongue.grid$Fit <- predict(p6.tongue, newdata = p6.tongue.grid, se = T)$fit 
+p6.tongue.grid$SE <- predict(p6.tongue, newdata = p6.tongue.grid, se = T)$se.fit 
+
+par(pty="s")
+comparison.p6 <- ggplot(p6.tongue.grid,aes(x=X, color=Consonant), res=300)
+p6ssanova = comparison.p6 + geom_line(aes(y=Fit), size=2, alpha = .8) +
+  scale_color_brewer(type="seq", palette = "Paired")+
+   coord_fixed(ratio= 85 /45,xlim = c(40,125),
+              ylim = c(30,75))+
+  ylab("") +xlab("P6(F)")+
+  geom_line(aes(y=Fit+(1.96*SE)),lty=2,alpha=0.8)+
+  geom_line(aes(y=Fit-(1.96*SE)),lty=2,alpha=0.8)+
+  theme(legend.position="none")
+
+
+###p7 ssanova
+
+p7data = subset(datassanova,Participant == "P7")
+
+p7data <- na.omit(p7data)
+
+p7.tongue = ssanova(Y~Consonant + X + Consonant:X, data=p7data)
+p7.tongue.grid <- expand.grid(X = seq(min(p7data$X),max(p7data$X),
+                                      length = 42), Consonant=levels(data$Consonant)) 
+p7.tongue.grid$Fit <- predict(p7.tongue, newdata = p7.tongue.grid, se = T)$fit 
+p7.tongue.grid$SE <- predict(p7.tongue, newdata = p7.tongue.grid, se = T)$se.fit 
+
+par(pty="s")
+comparison.p7 <- ggplot(p7.tongue.grid,aes(x=X, color=Consonant), res=300)
+p7ssanova = comparison.p7 + geom_line(aes(y=Fit), size=2, alpha = .8) +
+  scale_color_brewer(type="seq", palette = "Paired")+
+  coord_fixed(ratio= 85 /45,xlim = c(40,125),
+              ylim = c(30,75))+
+  ylab("") +xlab("P7(M)")+
+  geom_line(aes(y=Fit+(1.96*SE)),lty=2,alpha=0.8)+
+  geom_line(aes(y=Fit-(1.96*SE)),lty=2,alpha=0.8)+
+  theme(legend.position="none")
+
+###p8 ssanova
+p8data = subset(datassanova,Participant == "P8")
+p8data <- na.omit(p8data)
+
+p8.tongue = ssanova(Y~Consonant + X + Consonant:X, data=p8data)
+p8.tongue.grid <- expand.grid(X = seq(min(p8data$X),max(p8data$X), length  = 42), Consonant=levels(p8data$Consonant)) 
+
+p8.tongue.grid$Fit <- predict(p8.tongue, newdata = p8.tongue.grid, se = T)$fit 
+p8.tongue.grid$SE <- predict(p8.tongue, newdata = p8.tongue.grid, se = T)$se.fit 
+
+par(pty="s")
+comparison.p8 <- ggplot(p8.tongue.grid,aes(x=X, color=Consonant), res=300)
+p8ssanova = comparison.p8 + geom_line(aes(y=Fit), size=2, alpha = .8) +
+  scale_color_brewer(type="seq", palette = "Paired")+
+   coord_fixed(ratio= 85 /45,xlim = c(40,125),
+              ylim = c(30,75))+
+  ylab("") +xlab("P8(F)")+
+  geom_line(aes(y=Fit+(1.96*SE)),lty=2,alpha=0.8)+
+  geom_line(aes(y=Fit-(1.96*SE)),lty=2,alpha=0.8)+
+  theme(legend.position="none")
+
+
+##p9 ssanova
+
+p9data = subset(datassanova,Participant == "P9")
+
+p9.tongue = ssanova(Y~Consonant + X + Consonant:X, data=p9data)
+
+p9.tongue.grid <- expand.grid(X = seq(min(p9data$X),max(p9data$X),
+                                      length = 42), Consonant=levels(p9data$Consonant)) 
+
+p9.tongue.grid$Fit <- predict(p9.tongue, newdata = p9.tongue.grid, se = T)$fit 
+p9.tongue.grid$SE <- predict(p9.tongue, newdata = p9.tongue.grid, se = T)$se.fit 
+
+par(pty="s")
+comparison.p9 <- ggplot(p9.tongue.grid,aes(x=X, color=Consonant), res=300)
+p9ssanova = comparison.p9 + geom_line(aes(y=Fit), size=2, alpha = .8) +
+  scale_color_brewer(type="seq", palette = "Paired")+
+ coord_fixed(ratio= 85 /45,xlim = c(40,125),
+              ylim = c(30,75))+
+  ylab("") +xlab("P9(F)")+
+  geom_line(aes(y=Fit+(1.96*SE)),lty=2,alpha=0.8)+
+  geom_line(aes(y=Fit-(1.96*SE)),lty=2,alpha=0.8)+
+  theme(legend.position="none")
+
+
+##p10 ssanova
+
+p10data = subset(datassanova,Participant == "P10")
+p10.tongue = ssanova(Y~Consonant + X + Consonant:X, data=p10data)
+
+p10.tongue.grid <- expand.grid(X = seq(min(p10data$X),max(p10data$X),
+ length = 42), Consonant=levels(p10data$Consonant)) 
+
+p10.tongue.grid$Fit <- predict(p10.tongue, newdata = p10.tongue.grid, se = T)$fit
+p10.tongue.grid$SE <- predict(p10.tongue, newdata = p10.tongue.grid, se = T)$se.fit 
+
+par(pty="s")
+comparison.p10 <- ggplot(p10.tongue.grid,aes(x=X, color=Consonant), res=300)
+p10ssanova = comparison.p10 + geom_line(aes(y=Fit), size=2, alpha = .8) +
+  scale_color_brewer(type="seq", palette = "Paired")+
+   coord_fixed(ratio= 85 /45,xlim = c(40,125),
+              ylim = c(30,75))+
+  ylab("") +xlab("P10(F)")+
+  geom_line(aes(y=Fit+(1.96*SE)),lty=2,alpha=0.8)+
+  geom_line(aes(y=Fit-(1.96*SE)),lty=2,alpha=0.8)+
+  theme(legend.position="none")
+
+
+##p11 ssanova
+p11data = subset(datassanova,Participant == "P11")
+p11data = na.omit(p11data)
+
+p11.tongue = ssanova(Y~Consonant + X + Consonant:X, data=p11data)
+
+p11.tongue.grid <- expand.grid(X = seq(min(p11data$X),max(p11data$X),
+length = 42), Consonant=levels(p11data$Consonant)) 
+
+p11.tongue.grid$Fit <- predict(p11.tongue, newdata = p11.tongue.grid, se = T)$fit 
+p11.tongue.grid$SE <- predict(p11.tongue, newdata = p11.tongue.grid, se = T)$se.fit 
+
+par(pty="s")
+comparison.p11 <- ggplot(p11.tongue.grid,aes(x=X, color=Consonant), res=300)
+p11ssanova = comparison.p11 + geom_line(aes(y=Fit), size=2, alpha = .8) +
+  scale_color_brewer(type="seq", palette = "Paired")+
+   coord_fixed(ratio= 85 /45,xlim = c(40,125),
+              ylim = c(30,75))+
+  ylab("") +xlab("P11(F)")+
+  geom_line(aes(y=Fit+(1.96*SE)),lty=2,alpha=0.8)+
+  geom_line(aes(y=Fit-(1.96*SE)),lty=2,alpha=0.8)+
+  theme(legend.position="none")
+
+
+
+###p12 ssanova
+p12data = subset(datassanova,Participant == "P12")
+p12data = na.omit(p12data)
+
+p12.tongue = ssanova(Y~Consonant + X + Consonant:X, data=p12data)
+
+p12.tongue.grid <- expand.grid(X = seq(min(p12data$X),max(p12data$X),
+length = 42), Consonant=levels(p12data$Consonant)) 
+
+p12.tongue.grid$Fit <- predict(p12.tongue, newdata = p12.tongue.grid, se = T)$fit 
+p12.tongue.grid$SE <- predict(p12.tongue, newdata = p12.tongue.grid, se = T)$se.fit 
+
+par(pty="s")
+comparison.p12 <- ggplot(p12.tongue.grid,aes(x=X, color=Consonant), res=300)
+p12ssanova = comparison.p12 + geom_line(aes(y=Fit), size=2, alpha = .8) +
+  scale_color_brewer(type="seq", palette = "Paired")+
+   coord_fixed(ratio= 85 /45,xlim = c(40,125),
+              ylim = c(30,75))+
+  ylab("") +xlab("P12(F)")+
+  geom_line(aes(y=Fit+(1.96*SE)),lty=2,alpha=0.8)+
+  geom_line(aes(y=Fit-(1.96*SE)),lty=2,alpha=0.8)+
+  theme(legend.position="none")
+
+
+##p13 ssanova
+p13data = subset(datassanova,Participant == "P13")
+
+p13data = na.omit(p13data)
+
+p13.tongue = ssanova(Y~Consonant + X + Consonant:X, data=p13data)
+
+p13.tongue.grid <- expand.grid(X = seq(min(p13data$X),max(p13data$X),
+length = 42), Consonant=levels(p13data$Consonant)) 
+
+p13.tongue.grid$Fit <- predict(p13.tongue, newdata = p13.tongue.grid, se = T)$fit 
+p13.tongue.grid$SE <- predict(p13.tongue, newdata = p13.tongue.grid, se = T)$se.fit 
+
+par(pty="s")
+comparison.p13 <- ggplot(p13.tongue.grid,aes(x=X, color=Consonant), res=300)
+p13ssanova = comparison.p13 + geom_line(aes(y=Fit), size=2, alpha = .8) +
+  scale_color_brewer(type="seq", palette = "Paired")+
+   coord_fixed(ratio= 85 /45,xlim = c(40,125),
+              ylim = c(30,75))+
+  ylab("") +xlab("P13(F)")+
+  geom_line(aes(y=Fit+(1.96*SE)),lty=2,alpha=0.8)+
+  geom_line(aes(y=Fit-(1.96*SE)),lty=2,alpha=0.8)+
+  theme(legend.position="none")
+
+
+###p14 ssanova 
+p14data = subset(datassanova,Participant == "P14")
+p14data = na.omit(p14data)
+p14.tongue = ssanova(Y~Consonant + X + Consonant:X, data=p14data)
+
+p14.tongue.grid <- expand.grid(X = seq(min(p14data$X),max(p14data$X),
+length = 42), Consonant=levels(p14data$Consonant)) 
+
+p14.tongue.grid$Fit <- predict(p14.tongue, newdata = p14.tongue.grid, se = T)$fit 
+p14.tongue.grid$SE <- predict(p14.tongue, newdata = p14.tongue.grid, se = T)$se.fit 
+
+par(pty="s")
+comparison.p14 <- ggplot(p14.tongue.grid,aes(x=X, color=Consonant), res=300)
+p14ssanova = comparison.p14 + geom_line(aes(y=Fit), size=2, alpha = .8) +
+  scale_color_brewer(type="seq", palette = "Paired")+
+   coord_fixed(ratio= 85 /45,xlim = c(40,125),
+              ylim = c(30,75))+
+  ylab("") +xlab("P14(F)")+
+  geom_line(aes(y=Fit+(1.96*SE)),lty=2,alpha=0.8)+
+  geom_line(aes(y=Fit-(1.96*SE)),lty=2,alpha=0.8)+
+  theme(legend.position="none")
+
+
+##P15 SSANOVA 
+
+p15data = subset(datassanova,Participant == "P15")
+p15data = na.omit(p15data)
+p15.tongue = ssanova(Y~Consonant + X + Consonant:X, data=p15data)
+
+p15.tongue.grid <- expand.grid(X = seq(min(p15data$X),max(p15data$X),
+ length = 42), Consonant=levels(p15data$Consonant)) 
+
+p15.tongue.grid$Fit <- predict(p15.tongue, newdata = p15.tongue.grid, se = T)$fit 
+p15.tongue.grid$SE <- predict(p15.tongue, newdata = p15.tongue.grid, se = T)$se.fit 
+
+par(pty="s")
+comparison.p15 <- ggplot(p15.tongue.grid,aes(x=X, color=Consonant), res=300)
+p15ssanova = comparison.p15 + geom_line(aes(y=Fit), size=2, alpha = .8) +
+  scale_color_brewer(type="seq", palette = "Paired")+
+   coord_fixed(ratio= 85 /45,xlim = c(40,125),
+              ylim = c(30,75))+
+  ylab("") +xlab("P15(F)")+
+  geom_line(aes(y=Fit+(1.96*SE)),lty=2,alpha=0.8)+
+  geom_line(aes(y=Fit-(1.96*SE)),lty=2,alpha=0.8)+
+  theme(legend.position="none")
+
+
+##P16 ssanova
+p16data = subset(datassanova,Participant == "P16")
+p16data = na.omit(p16data)
+
+p16.tongue = ssanova(Y~Consonant + X + Consonant:X, data=p16data)
+
+p16.tongue.grid <- expand.grid(X = seq(min(p16data$X),max(p16data$X),
+length = 42), Consonant=levels(p16data$Consonant)) 
+
+p16.tongue.grid$Fit <- predict(p16.tongue, newdata = p16.tongue.grid, se = T)$fit 
+p16.tongue.grid$SE <- predict(p16.tongue, newdata = p16.tongue.grid, se = T)$se.fit 
+
+par(pty="s")
+comparison.p16 <- ggplot(p16.tongue.grid,aes(x=X, color=Consonant), res=300)
+p16ssanova = comparison.p16 + geom_line(aes(y=Fit), size=2, alpha = .8) +
+  scale_color_brewer(type="seq", palette = "Paired")+
+   coord_fixed(ratio= 85 /45,xlim = c(40,125),
+              ylim = c(30,75))+
+  ylab("") +xlab("P16(F)")+
+  geom_line(aes(y=Fit+(1.96*SE)),lty=2,alpha=0.8)+
+  geom_line(aes(y=Fit-(1.96*SE)),lty=2,alpha=0.8)+
+  theme(legend.position="none")
+
+
+###P17 ssanova 
+
+p17data = subset(datassanova,Participant == "P17")
+p17data = na.omit(p17data)
+
+p17.tongue = ssanova(Y~Consonant + X + Consonant:X, data=p17data)
+
+p17.tongue.grid <- expand.grid(X = seq(min(p17data$X),max(p17data$X),
+ length = 42), Consonant=levels(p17data$Consonant)) 
+
+p17.tongue.grid$Fit <- predict(p17.tongue, newdata = p17.tongue.grid, se = T)$fit 
+p17.tongue.grid$SE <- predict(p17.tongue, newdata = p17.tongue.grid, se = T)$se.fit 
+
+par(pty="s")
+comparison.p17 <- ggplot(p17.tongue.grid,aes(x=X, color=Consonant), res=300)
+p17ssanova = comparison.p17 + geom_line(aes(y=Fit), size=2, alpha = .8) +
+  scale_color_brewer(type="seq", palette = "Paired")+
+   coord_fixed(ratio= 85 /45,xlim = c(40,125),
+              ylim = c(30,75))+
+  ylab("") +xlab("P17(F)")+
+  geom_line(aes(y=Fit+(1.96*SE)),lty=2,alpha=0.8)+
+  geom_line(aes(y=Fit-(1.96*SE)),lty=2,alpha=0.8)+
+  theme(legend.position="none")
+
+
+##P18 ssanova 
+
+p18data = subset(datassanova,Participant == "P18")
+
+p18data = na.omit(p18data)
+
+p18.tongue = ssanova(Y~Consonant + X + Consonant:X, data=p18data)
+
+p18.tongue.grid <- expand.grid(X = seq(min(p18data$X),max(p18data$X),
+length = 42), Consonant=levels(p18data$Consonant)) 
+
+p18.tongue.grid$Fit <- predict(p18.tongue, newdata = p18.tongue.grid, se = T)$fit 
+p18.tongue.grid$SE <- predict(p18.tongue, newdata = p18.tongue.grid, se = T)$se.fit 
+
+par(pty="s")
+comparison.p18 <- ggplot(p18.tongue.grid,aes(x=X, color=Consonant), res=300)
+p18ssanova = comparison.p18 + geom_line(aes(y=Fit), size=2, alpha = .8) +
+  scale_color_brewer(type="seq", palette = "Paired")+
+   coord_fixed(ratio= 85 /45,xlim = c(40,125),
+              ylim = c(30,75))+
+  ylab("") +xlab("P18(F)")+
+  geom_line(aes(y=Fit+(1.96*SE)),lty=2,alpha=0.8)+
+  geom_line(aes(y=Fit-(1.96*SE)),lty=2,alpha=0.8)+
+  theme(legend.position="none")
+
+##P19 SSANOVA
+
+p19data = subset(datassanova,Participant == "P19")
+
+p19data = na.omit(p19data)
+
+p19.tongue = ssanova(Y~Consonant + X + Consonant:X, data=p19data)
+
+p19.tongue.grid <- expand.grid(X = seq(min(p19data$X),max(p19data$X),
+length = 42), Consonant=levels(p19data$Consonant)) 
+
+p19.tongue.grid$Fit <- predict(p19.tongue, newdata = p19.tongue.grid, se = T)$fit 
+p19.tongue.grid$SE <- predict(p19.tongue, newdata = p19.tongue.grid, se = T)$se.fit 
+
+par(pty="s")
+comparison.p19 <- ggplot(p19.tongue.grid,aes(x=X, color=Consonant), res=300)
+p19ssanova = comparison.p19 + geom_line(aes(y=Fit), size=2, alpha = .8) +
+  scale_color_brewer(type="seq", palette = "Paired")+
+   coord_fixed(ratio= 85 /45,xlim = c(40,125),
+              ylim = c(30,75))+
+  ylab("") +xlab("P19(M)")+
+  geom_line(aes(y=Fit+(1.96*SE)),lty=2,alpha=0.8)+
+  geom_line(aes(y=Fit-(1.96*SE)),lty=2,alpha=0.8)+
+  theme(legend.position="none")
+
+
+
+fig5 = ggarrange(p1ssanova,p2ssanova,p3ssanova, p4ssanova,
+                     p6ssanova,p7ssanova,p8ssanova,p9ssanova,
+                     p10ssanova,p11ssanova,p12ssanova,p13ssanova,
+                     p14ssanova,p15ssanova,p16ssanova,p17ssanova,
+                     p18ssanova,p19ssanova,
+                    common.legend = TRUE) 
+
+ggsave(fig5,filename= "Fig5.png",dpi = 600, width = 12, height = 12, units = "in")
+
+```
+
+
+
+#Tables 3 and 4 LMER 
+```{r}
+
+datapolar = read.csv("datapolar.csv",header=TRUE)
+save(datapolar, file = "datapolar.RData")
+load(file="datapolar.RData")
+
+
+datapolar$Consonant=factor(datapolar$Consonant,
+                     levels = c("c", "s", "z","ch","sh","zh"),
+                     labels = c("ʦʰ", "s", "ʦ","tʂʰ","ʂ","tʂ"))
+
+datapolar$Grouping = datapolar$Consonant
+
+levels(datapolar$Grouping) <- list(Alveolar=c("ʦʰ","s","ʦ"),Retroflex=c("tʂʰ","ʂ","tʂ"))
+
+datapolar$Vowel=factor(datapolar$Vowel,
+                            levels = c("i", "a", "u"),
+                            labels = c("i", "a", "u"))
+
+datapolar$Participant = factor(datapolar$Participant,
+                              levels = c("P1","P2","P3","P4","P5","P6","P7","P8","P9","P10",                            "P11","P12","P13","P14","P15","P16","P17","P18","P19"),
+                              labels = c("P1","P2","P3","P4","P5","P6","P7","P8","P9","P10",                            "P11","P12","P13","P14","P15","P16","P17","P18","P19"))
+
+datapolar$Section = factor(datapolar$Section,
+                           levels = c("Front","Back"),
+                           labels = c("Front","Back"))
+
+datapolar = subset(datapolar, Participant != "P5")
+datapolar = na.omit(datapolar)
+
+
+radiusfront1model = lmer(Radius ~ Grouping * Vowel + (1+Grouping | Participant) + (1+Vowel|Participant), data = subset(datapolar,Section =="Front"),REML= F)
+
+radiusfrontmodel = lmer(Radius ~ Grouping + Vowel + (1+Grouping | Participant) + (1+Vowel|Participant),data = subset(datapolar,Section =="Front"),REML= F)
+
+##Table 3
+anova(radiusfront1model,radiusfrontmodel)
+summary(radiusfrontmodel)
+
+##Table 4
+radiusback1model = lmer(Radius ~ Grouping * Vowel + (1+Grouping | Participant) + (1+Vowel|Participant), data = subset(datapolar, Section =="Back"),REML= F)
+
+radiusbackmodel = lmer(Radius ~ Grouping + Vowel + (1+Grouping | Participant) + (1+Vowel|Participant),data = subset(datapolar, Section =="Back"),REML= F)
+
+anova(radiusback1model, radiusbackmodel)
+summary(radiusbackmodel)
+```
+      
+
+
+#Figure 6 articulatory values for place-contrast notched boxpltos 
+```{r}
+
+cdnotched = ggplot(data,aes(x=Consonant,y=Curvature_Degree,fill=Grouping))+
+  geom_boxplot(notch =TRUE)+
+  xlab("")+ylab("Curvature Degree")+
+  stat_compare_means(ref.group = "ʦʰ",method = "t.test",label = "p.signif",label.y = 0.5,hide.ns = TRUE)+ cleanup
+
+clnotched = ggplot(data,aes(x=Consonant,y=Curvature_Location,fill=Grouping))+
+  geom_boxplot(notch =TRUE)+
+  xlab("")+ylab("Curvature Location")+
+  stat_compare_means(ref.group = "ʦʰ",method = "t.test",label = "p.signif",label.y = 0.65,hide.ns = TRUE)+ cleanup
+
+
+MCInotched= ggplot(data,aes(x=Consonant,y=MCI,fill=Grouping))+
+  geom_boxplot(notch =TRUE)+
+  xlab("")+ylab("MCI")+
+  stat_compare_means(ref.group = "ʦʰ",method = "t.test",label = "p.signif",label.y = 4,hide.ns = TRUE)+ cleanup
+
+c1realnotched= ggplot(data,aes(x=Consonant,y=real_1,fill=Grouping))+
+  geom_boxplot(notch =TRUE)+
+  xlab("")+ylab("C1_real")+
+  stat_compare_means(ref.group = "ʦʰ",method = "t.test",label = "p.signif",label.y = 38,hide.ns = TRUE)+  cleanup
+
+C1imagnotched = ggplot(data,aes(x=Consonant,y=imag_1,fill=Grouping))+
+  geom_boxplot(notch =TRUE)+
+  xlab("")+ylab("C1_imag")+
+  stat_compare_means(ref.group = "ʦʰ",method = "t.test",label = "p.signif",label.y = -3,hide.ns = TRUE)+  cleanup
+
+fig6 =ggarrange(clnotched,cdnotched,MCInotched,
+            c1realnotched,C1imagnotched, 
+               common.legend=TRUE)
+
+ggsave(fig6,filename= "Fig6.png",dpi = 500, width = 8, height = 6, units = "in")
+
+```
+
+
+#Figures 7 and 9, LDA results using articulatory quantifications and acoustic values
+```{r}
+
+couleurs=c("darkorange","grey")
+
+Fig7plot = partimat(Grouping ~  real_1 + Curvature_Location, data=data,
+                       method="lda",na.action=na.omit, prec=100,display.points=FALSE,image.colors = couleurs,main = "LDA results using Curvature Location and C1_real for all participants", size=12)
+
+dev.copy(png, filename="Fig7.png",res = 500, width = 8, height = 6, units = "in")
+dev.off()
+
+
+fig9plot = partimat(Grouping ~  COG + Dispersion + Skewness + F2_mean,
+data=data,method="lda",na.action=na.omit, prec=100,
+display.points=FALSE,image.colors = couleurs,
+main =  "LDA results using four acoustic values across participants",size = 12)
+
+dev.copy(png,filename="Fig9.png",res = 500, width = 10, height = 8, units = "in")
+
+dev.off()
+```
+
+
+#Figure 8 acoustic values for place contrast notched boxplots  
+```{r}
+F2notched = ggplot(data,aes(x=Consonant,y=F2_mean,fill=Grouping))+
+  geom_boxplot(notch =TRUE)+
+  xlab("")+ylab("F2")+
+  stat_compare_means(ref.group = "ʦʰ",method = "t.test",label = "p.signif",label.y = 2800,hide.ns = TRUE)+
+  theme(legend.position = "none") +  cleanup
+
+
+F3notched = ggplot(data,aes(x=Consonant,y=F3_mean,fill=Grouping))+
+  geom_boxplot(notch =TRUE)+
+  xlab("")+ylab("F3")+
+  stat_compare_means(ref.group = "ʦʰ",method = "t.test",label = "p.signif",label.y = 3800,hide.ns = TRUE)+
+  theme(legend.position = "none") + cleanup
+
+F3F2notched = ggplot(data,aes(x=Consonant,y=F3F2Distance,fill=Grouping))+
+  geom_boxplot(notch =TRUE)+
+  xlab("")+ylab("F3F2Distance")+
+  stat_compare_means(ref.group = "ʦʰ",method = "t.test",label = "p.signif",label.y = 1500,hide.ns = TRUE)+
+  theme(legend.position = "none") +  cleanup
+
+COGnotched = ggplot(data,aes(x=Consonant,y=COG,fill=Grouping))+
+  geom_boxplot(notch =TRUE)+
+  xlab("")+ylab("COG")+
+  stat_compare_means(ref.group = "ʦʰ",method = "t.test",label = "p.signif",label.y = 7500,hide.ns = TRUE)+ cleanup
+
+
+skewnotched = ggplot(data,aes(x=Consonant,y=Skewness,fill=Grouping))+
+  geom_boxplot(notch =TRUE)+
+  xlab("")+ylab("Skewness")+
+  stat_compare_means(ref.group = "ʦʰ",method = "t.test",label = "p.signif",label.y = 1.3,hide.ns = TRUE)+
+  theme(legend.position = "none") + cleanup
+
+
+dispersionnotched = ggplot(data,aes(x=Consonant,y=Dispersion,fill=Grouping))+
+  geom_boxplot(notch =TRUE)+
+  xlab("")+ylab("Dispersion")+
+  stat_compare_means(ref.group = "ʦʰ",method = "t.test",label = "p.signif",label.y = 3500,hide.ns = TRUE)+
+  theme(legend.position = "none") + cleanup
+
+
+
+fig8 = ggarrange( COGnotched, dispersionnotched,skewnotched,
+                    F2notched, F3notched, F3F2notched,
+                      common.legend = TRUE)
+
+ggsave(fig8,filename= "Fig8.png",dpi = 500, width = 8, height = 6, units = "in")
+
+```
+
+
+
+#LDA Results using acoustics 
+```{r}
+acoustics5 = lda(Grouping ~ COG + Dispersion + Skewness + F2_mean +  F3F2Distance, data=data)
+
+p.acoustics5  = predict(acoustics5,data)
+p.acoustics5.class = p.acoustics5$class
+p.acoustics5.table = table(p.acoustics5.class,data$Grouping)
+
+acoustics5_accur = sum(diag(p.acoustics5.table))/sum(p.acoustics5.table)
+
+print(acoustics5_accur)
+
+
+acoustics4 = lda(Grouping ~ COG + Dispersion + Skewness + F2_mean , data=data)
+
+p.acoustics4  = predict(acoustics4,data)
+p.acoustics4.class = p.acoustics4$class
+p.acoustics4.table = table(p.acoustics4.class,data$Grouping)
+
+acoustics4_accur = sum(diag(p.acoustics4.table))/sum(p.acoustics4.table)
+
+print(acoustics4_accur)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
